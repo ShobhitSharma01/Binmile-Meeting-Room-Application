@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
-import { HttpModule } from '@nestjs/axios'; // ✅ Import this
+import { HttpModule } from '@nestjs/axios'; 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
@@ -18,7 +18,7 @@ import { CommonModule } from 'src/common/common.module';
       secret: process.env.JWT_SECRET || 'dedede123',
       signOptions: { expiresIn: '1h' },
     }),
-    HttpModule, // ✅ Add this so HttpService can be injected
+    HttpModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, GoogleStrategy],

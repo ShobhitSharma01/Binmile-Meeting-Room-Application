@@ -1,4 +1,3 @@
-// src/common/employee-sync.service.ts
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { UsersService } from '../users/users.service';
@@ -6,7 +5,7 @@ import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { UserRole } from 'src/users/entities/user.entity';
+import { ConfigService } from '@nestjs/config';
 
 interface RmsEmployee {
   email: string;
@@ -16,19 +15,28 @@ interface RmsEmployee {
 @Injectable()
 export class EmployeeSyncService {
   private readonly logger = new Logger(EmployeeSyncService.name);
-  private readonly rmsUrl = 'https://rms.bmtapps.com/public/api/employeelist';
+  private readonly rmsUrl: string;
 
   constructor(
     private readonly usersService: UsersService,
     private readonly httpService: HttpService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    this.rmsUrl = this.configService.get('RMS_URL')?.toString() || '';
+  }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_DAY_AT_7AM)
   async syncRmsEmployees() {
     this.logger.log('Starting RMS employee sync...');
 
     try {
+      if (!this.rmsUrl) {
+        this.logger.error('RMS URL is not defined');
+        return;
+      }
+
       const response = await lastValueFrom(this.httpService.get(this.rmsUrl));
 
       if (response.status !== 200 || !response.data) {
@@ -42,7 +50,6 @@ export class EmployeeSyncService {
         return;
       }
 
-      // Normalize emails and filter valid entries
       const rmsEmployees: RmsEmployee[] = rmsEmployeesRaw
         .filter((emp: any) => emp.email && emp.employee_name)
         .map((emp: any) => ({
@@ -52,24 +59,19 @@ export class EmployeeSyncService {
 
       const rmsMap = new Map<string, RmsEmployee>(rmsEmployees.map((emp) => [emp.email, emp]));
 
-      // Get all active users
-      const dbUsers = await this.usersService.findAll(); // returns only active users
+      const dbUsers = await this.usersService.findAll(); // get all users
       const dbMap = new Map<string, any>(dbUsers.map((user) => [user.email.toLowerCase(), user]));
 
       const added: string[] = [];
       const updated: string[] = [];
       const removed: string[] = [];
 
-      // Add or update users
       for (const [email, emp] of rmsMap.entries()) {
         const dbUser = dbMap.get(email);
         if (!dbUser) {
           await this.usersService.create({
             email: emp.email,
             name: emp.employee_name,
-            password: '',
-            role: 'employee' as UserRole,
-            managerId: null,
           });
           added.push(emp.email);
         } else if (dbUser.name !== emp.employee_name) {
@@ -80,15 +82,13 @@ export class EmployeeSyncService {
         }
       }
 
-      // Soft-delete users not in RMS
       for (const [email, dbUser] of dbMap.entries()) {
         if (!rmsMap.has(email)) {
-          await this.usersService.remove(dbUser.id); // now soft delete
+          await this.usersService.remove(dbUser.id);
           removed.push(dbUser.email);
         }
       }
 
-      // Cache employees for 1 hour
       await this.cacheManager.set('employees', rmsEmployees, 3600);
 
       if (added.length) this.logger.log(`Added users: ${added.join(', ')}`);

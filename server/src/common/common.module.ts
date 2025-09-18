@@ -9,6 +9,6 @@ import { UsersModule } from 'src/users/users.module';
 @Module({
   imports: [UsersModule, HttpModule, CacheModule.register()],
   providers: [LoggerService, LoggingInterceptor, EmployeeSyncService],
-  exports: [LoggerService, LoggingInterceptor, EmployeeSyncService], // Exporting it so it can be used in interceptors or other modules
+  exports: [LoggerService, LoggingInterceptor, EmployeeSyncService],
 })
 export class CommonModule {}

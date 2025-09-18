@@ -14,15 +14,6 @@ export class User {
   @Column()
   name: string;
 
-  @Column()
-  password: string;
-
-  @Column({ type: 'enum', enum: ['admin', 'manager', 'employee'] })
-  role: UserRole;
-
-  @Column({ type: 'uuid', nullable: true })
-  managerId?: string | null;
-
   @Column({ default: false })
   isActive: boolean;
 

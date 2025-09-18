@@ -7,9 +7,10 @@ async function bootstrap() {
 
   // Enable CORS for frontend
   app.enableCors({
-    origin: 'http://localhost:5173', // your React frontend
+    origin: ['http://localhost:3000', 'http://localhost:5173'],
     credentials: true,
   });
+
   app.useGlobalInterceptors(app.get(LoggingInterceptor));
   await app.listen(4000);
 }

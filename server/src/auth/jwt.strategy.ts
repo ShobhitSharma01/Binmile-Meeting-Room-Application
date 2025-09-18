@@ -9,7 +9,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // 👈 inject instance
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.get<string>(`${process.env.JWT_SECRET}`, 'dedede123'), // 👈 use instance
+      secretOrKey: configService.get<string>(`${process.env.JWT_SECRET}`, 'dedede123'),
     });
   }
 
@@ -18,8 +18,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: payload.id,
       name: payload.name,
       email: payload.email,
-      role: payload.role,
-      managerId: payload.managerId || null,
     };
   }
 }

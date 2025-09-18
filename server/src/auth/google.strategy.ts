@@ -8,7 +8,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     super({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: 'http://localhost:4000/auth/google/callback',
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
       scope: ['email', 'profile'],
     });
   }
@@ -23,10 +23,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       // :x: Agar domain galat ho
       return done(null, {
         error: ':no_entry_symbol: Invalid Email Domain',
-        message: 'Only company emails (@Admin Binmile.com) are allowed.',
+        message: 'Only binmilers are allowed.',
       });
     }
     // :white_tick: Agar sahi email ho
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const user = await this.authService.loginWithGmail(email);
     done(null, user);
   }

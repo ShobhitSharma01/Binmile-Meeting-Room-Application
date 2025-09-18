@@ -20,7 +20,7 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(private readonly bookingsService: BookingsService) { }
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body(new ZodValidationPipe(BookingSchema)) bookingDto: BookingDto) {
@@ -28,9 +28,25 @@ export class BookingsController {
   }
   @UseGuards(JwtAuthGuard)
   @Get()
-  getBookings(@Req() req, @Query('userId') userId?: string, @Query('page') page = 1) {
-    const role = req.user?.role; // 'employee', 'manager', or 'admin'
-    return this.bookingsService.fetcAllBookings(userId, role, +page);
+  getBookings(
+    @Req() req,
+    @Query('userId') userId?: string,
+    @Query('page') page = 1,
+    @Query('roomId') roomId?: string,
+    @Query('filterMode') filterMode?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    const role = req.user?.role;
+    return this.bookingsService.fetchAllBookings(
+      userId,
+      role,
+      +page,
+      roomId,
+      filterMode,
+      fromDate,
+      toDate,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

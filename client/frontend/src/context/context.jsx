@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import {jwtDecode} from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
-const backend = 'http://localhost:4000';
+const backend = import.meta.env.VITE_BACKEND_URL;
 const UserContext = createContext();
 
 const api = axios.create({ baseURL: backend });
@@ -20,9 +20,7 @@ export function UserContextProvider({ children }) {
   const [user, setUser] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [rooms, setRooms] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [manager, setManager] = useState([]);
 
   // Load user from localStorage on mount
   useEffect(() => {
@@ -51,10 +49,8 @@ export function UserContextProvider({ children }) {
       const res = await api.post('/auth/google-login', { email });
       const { access_token } = res.data;
 
-      
       localStorage.setItem('token', JSON.stringify(access_token));
 
-  
       const decodedUser = jwtDecode(access_token);
       setUser(decodedUser);
 
@@ -88,19 +84,14 @@ export function UserContextProvider({ children }) {
       const payload = {
         booking_id,
         room_id,
-        start_time:
-          start_time instanceof Date ? start_time.toISOString() : start_time,
+        start_time: start_time instanceof Date ? start_time.toISOString() : start_time,
         end_time: end_time instanceof Date ? end_time.toISOString() : end_time,
       };
 
       const res = await api.patch('/bookings', payload);
       const updatedBooking = res.data;
-      updatedBooking.start_time = new Date(
-        updatedBooking.start_time ?? updatedBooking.startTime,
-      );
-      updatedBooking.end_time = new Date(
-        updatedBooking.end_time ?? updatedBooking.endTime,
-      );
+      updatedBooking.start_time = new Date(updatedBooking.start_time ?? updatedBooking.startTime);
+      updatedBooking.end_time = new Date(updatedBooking.end_time ?? updatedBooking.endTime);
 
       toast.success('Booking updated successfully');
       return updatedBooking;
@@ -132,49 +123,42 @@ export function UserContextProvider({ children }) {
     }
   };
 
-  const fetchBookings = async ({ userId, role, page = 1 } = {}) => {
-    try {
-      const params = new URLSearchParams();
-      if (userId) params.append('userId', userId);
-      if (role) params.append('role', role);
-      params.append('page', page);
-
-      const url = params.toString()
-        ? `/bookings?${params.toString()}`
-        : '/bookings';
-      const res = await api.get(url);
-      const data = res.data;
-
-      setBookings(data.bookings);
-      return data;
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Error fetching bookings');
-      setBookings([]);
-      return { bookings: [], totalPages: 1 };
+const fetchBookings = async ({
+  userId,
+  role,
+  page = 1,
+  roomId,
+  filterMode,
+  fromDate,
+  toDate,
+} = {}) => {
+  try {
+    const params = new URLSearchParams();
+    if (userId) params.append('userId', userId);
+    if (role) params.append('role', role);
+    if (roomId) params.append('roomId', roomId);
+    if (filterMode) params.append('filterMode', filterMode);
+    // Only send range dates if filterMode === 'range'
+    if (filterMode === 'range') {
+      if (fromDate) params.append('fromDate', fromDate.toISOString());
+      if (toDate) params.append('toDate', toDate.toISOString());
     }
-  };
-
-  const fetchEmployees = async () => {
-    try {
-      const res = await api.get('/users');
-      setEmployees(res.data || []);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Error fetching employees');
-      setEmployees([]);
-    }
-  };
-
-  const fetchManager = async () => {
-    try {
-      const res = await api.get('/users/manager');
-      setManager(res.data);
-    } catch (error) {}
-  };
-
+    params.append('page', page);
+    const url = params.toString() ? `/bookings?${params.toString()}` : '/bookings';
+    const res = await api.get(url);
+    const data = res.data;
+    setBookings(data.bookings || []);
+    return data;
+  } catch (err) {
+    toast.error(err.response?.data?.message || 'Error fetching bookings');
+    setBookings([]);
+    return { bookings: [], totalPages: 1 };
+  }
+};
   return (
     <UserContext.Provider
       value={{
-        loginWithGoogle, // ✅ Google login added
+        loginWithGoogle,
         logout,
         user,
         setUser,
@@ -186,12 +170,10 @@ export function UserContextProvider({ children }) {
         rooms,
         fetchRooms,
         fetchBookings,
-        employees,
-        fetchEmployees,
         loading,
         setLoading,
-        fetchManager,
-        manager,
+
+        
       }}
     >
       {children}
@@ -201,7 +183,6 @@ export function UserContextProvider({ children }) {
 
 export function useUserContext() {
   const context = useContext(UserContext);
-  if (!context)
-    throw new Error('useUserContext must be used within a UserContextProvider');
+  if (!context) throw new Error('useUserContext must be used within a UserContextProvider');
   return context;
 }

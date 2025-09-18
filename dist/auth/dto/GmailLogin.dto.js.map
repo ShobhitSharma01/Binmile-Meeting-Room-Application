@@ -1,0 +1,1 @@
+{"version":3,"file":"GmailLogin.dto.js","sourceRoot":"","sources":["../../../server/src/auth/dto/GmailLogin.dto.ts"],"names":[],"mappings":";;;AAAA,6BAAwB;AAEX,QAAA,gBAAgB,GAAG,OAAC,CAAC,MAAM,CAAC;IACvC,KAAK,EAAE,OAAC,CAAC,MAAM,EAAE,CAAC,KAAK,CAAC,uBAAuB,CAAC;CACjD,CAAC,CAAC"}

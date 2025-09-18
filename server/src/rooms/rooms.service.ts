@@ -16,6 +16,7 @@ export class RoomsService {
   }
   //find all rooms
   async fetchAll(): Promise<Room[]> {
-    return this.roomRepositery.find();
+    const rooms = this.roomRepositery.find();
+    return rooms;
   }
 }

@@ -2,10 +2,10 @@ import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import MyBookings from './pages/MyBookings';
-import BookRoom from './pages/Bookroom';
+import BookRoom from './pages/BookRoom';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
-import { useUserContext } from './context/context'; 
+import { useUserContext } from './context/context';
 import Profile from './pages/Profile';
 
 export default function App() {
@@ -40,7 +40,6 @@ export default function App() {
               </motion.div>
             }
           />
-
 
           {/* Login Page */}
           <Route

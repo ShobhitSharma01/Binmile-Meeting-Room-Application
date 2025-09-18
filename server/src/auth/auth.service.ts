@@ -4,7 +4,6 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { EmployeeSyncService } from 'src/common/employee-sync.service';
-import { UserRole } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -36,9 +35,6 @@ export class AuthService {
       user = await this.usersService.create({
         email: normalizedEmail,
         name: userData.employee_name,
-        password: '',
-        role: 'employee' as UserRole,
-        managerId: null,
       });
     }
 
@@ -47,8 +43,6 @@ export class AuthService {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
-      managerId: user.managerId,
     };
 
     return {

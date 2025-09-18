@@ -20,7 +20,7 @@ export default function Login() {
     const top = window.innerHeight / 2 - height / 3;
 
     const popup = window.open(
-      'http://localhost:4000/auth/google', // Backend OAuth route
+      'http://localhost:4000/auth/google',
       'GoogleLogin',
       `width=${width},height=${height},top=${top},left=${left}`,
     );
@@ -41,13 +41,13 @@ export default function Login() {
         setUser(jwtDecode(access_token));
         navigate('/');
       } else if (error) {
-        // Attractive error notification
+        // Attractive error
         toast.error(
           <div className="flex flex-col items-start">
             <span className="font-semibold">Login Failed!</span>
             <span>{error}</span>
           </div>,
-          { autoClose: 4000 },
+          { autoClose: 1000 },
         );
       }
 
@@ -69,7 +69,6 @@ export default function Login() {
     }, 500);
   };
 
-
   return (
     <div className="LoginPage w-full min-h-screen bg-gradient-to-b from-[#f6efe9] to-[#e7ded6] flex items-center justify-center font-sans overflow-y-hidden">
       <motion.div
@@ -78,13 +77,10 @@ export default function Login() {
         transition={{ duration: 0.8, ease: 'easeOut' }}
         className="bg-white/60 backdrop-blur-lg p-10 rounded-3xl shadow-2xl w-96 flex flex-col items-center border border-white/30 overflow-hidden"
       >
-        <h1 className="text-3xl font-bold mb-8 text-[#3c2f2f] text-center">
-          Welcome Back
-        </h1>
+        <h1 className="text-3xl font-bold mb-8 text-[#3c2f2f] text-center">Welcome</h1>
 
         <p className="text-sm text-gray-600 mb-6 text-center">
-          Sign in with your <span className="font-semibold">@binmile.com</span>{' '}
-          email
+          Sign in with your <span className="font-semibold">@binmile.com</span> email
         </p>
 
         <motion.button

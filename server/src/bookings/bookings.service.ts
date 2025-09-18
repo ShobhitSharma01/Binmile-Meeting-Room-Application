@@ -14,6 +14,8 @@ export class BookingsService {
     private readonly bookingRepositery: Repository<Booking>,
     private readonly notificationService: NotificationService,
   ) {}
+
+  // --- createBooking ---
   async create(bookingDto: BookingDto): Promise<string> {
     const { room_id, employee_id, startTime, endTime } = bookingDto;
     const startObj = new Date(startTime);
@@ -30,7 +32,7 @@ export class BookingsService {
     }
 
     return await this.bookingRepositery.manager.transaction(async (manager) => {
-      //     Pessimistic lock on room
+      // Pessimistic lock on room
       await manager
         .createQueryBuilder(Room, 'room')
         .setLock('pessimistic_write')
@@ -59,16 +61,29 @@ export class BookingsService {
         );
       }
 
-      // Check user conflicts
+      // Check user conflicts (with room join)
       const userConflict = await manager
         .createQueryBuilder(Booking, 'b')
+        .leftJoinAndSelect('b.room', 'room')
         .where('b.user = :employee_id', { employee_id })
         .andWhere('b.endTime > :startTime', { startTime: startObj })
         .andWhere('b.startTime < :endTime', { endTime: endObj })
         .getOne();
 
       if (userConflict) {
-        throw new ConflictException('User already has a booking in this time slot');
+        throw new ConflictException(
+          `User already has a booking in "${userConflict.room.name}" from ${new Date(
+            userConflict.startTime,
+          ).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          })} to ${new Date(userConflict.endTime).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          })}`,
+        );
       }
 
       const newBooking = manager.create(Booking, {
@@ -81,24 +96,17 @@ export class BookingsService {
       await manager.save(newBooking);
 
       // Fetch full user and room details
-      const employee = await manager.findOne(User, {
-        where: { id: employee_id },
-      });
+      const employee = await manager.findOne(User, { where: { id: employee_id } });
       const room = await manager.findOne(Room, { where: { id: room_id } });
 
       // Send Slack notification
       await this.notificationService.sendBookingNotification({
         employeeName: employee ? employee.name : `Employee ${employee_id}`,
         roomName: room ? `${room.name} Room` : `Room ${room_id}`,
-        startTime: startObj.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        endTime: endObj.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+        startTime: startObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        endTime: endObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       });
+
       return 'Booking created successfully';
     });
   }
@@ -129,21 +137,48 @@ export class BookingsService {
     });
     if (!existingBooking) throw new NotFoundException('Booking not found');
 
-    const alreadyBooked = await this.bookingRepositery
+    // Check for room conflict
+    const roomConflict = await this.bookingRepositery
       .createQueryBuilder('b')
-      .where('b.room = :room_id', { room_id })
-      .andWhere('b.id != :booking_id', { booking_id })
+      .where('b.id != :booking_id', { booking_id })
+      .andWhere('b.room = :room_id', { room_id })
       .andWhere('b.endTime > :startTime', { startTime: startObj })
       .andWhere('b.startTime < :endTime', { endTime: endObj })
       .getOne();
 
-    if (alreadyBooked) {
+    if (roomConflict) {
       throw new ConflictException(
-        `Room already booked from ${startObj.toLocaleTimeString([], {
+        `Room is already booked from ${new Date(roomConflict.startTime).toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
           hour12: true,
-        })} to ${endObj.toLocaleTimeString([], {
+        })} to ${new Date(roomConflict.endTime).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        })}`,
+      );
+    }
+
+    // Check for user conflict (with room join)
+    const userConflict = await this.bookingRepositery
+      .createQueryBuilder('b')
+      .leftJoinAndSelect('b.room', 'room')
+      .where('b.id != :booking_id', { booking_id })
+      .andWhere('b.user = :user_id', { user_id: existingBooking.user.id })
+      .andWhere('b.endTime > :startTime', { startTime: startObj })
+      .andWhere('b.startTime < :endTime', { endTime: endObj })
+      .getOne();
+
+    if (userConflict) {
+      throw new ConflictException(
+        `You already have a booking in "${userConflict.room.name}" from ${new Date(
+          userConflict.startTime,
+        ).toLocaleTimeString([],{
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        })} to ${new Date(userConflict.endTime).toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
           hour12: true,
@@ -156,19 +191,12 @@ export class BookingsService {
 
     const saved = await this.bookingRepositery.save(existingBooking);
 
-    // --- Send Slack notification ---
     if (this.notificationService) {
       await this.notificationService.sendBookingNotification({
         employeeName: saved.user?.name || `Employee ${saved.user?.id}`,
         roomName: saved.room?.name || `Room ${saved.room?.id}`,
-        startTime: startObj.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        endTime: endObj.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+        startTime: startObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        endTime: endObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       });
     }
 
@@ -184,10 +212,7 @@ export class BookingsService {
   async deleteBooking(booking_id: string): Promise<string> {
     if (!booking_id) throw new BadRequestException('Booking ID is required');
 
-    const existingBooking = await this.bookingRepositery.findOne({
-      where: { id: booking_id },
-    });
-
+    const existingBooking = await this.bookingRepositery.findOne({ where: { id: booking_id } });
     if (!existingBooking) throw new NotFoundException('Booking not found');
 
     await this.bookingRepositery.softRemove(existingBooking);
@@ -195,29 +220,41 @@ export class BookingsService {
     return 'Deleted successfully';
   }
 
-  async fetcAllBookings(
+  // fetchAllBookings --- //
+ async fetchAllBookings(
     userId?: string,
     role?: string,
     page: number = 1,
+    roomId?: string, // added
+    filterMode?: string,
+    fromDate?: string,
+    toDate?: string,
   ): Promise<{ bookings: any[]; totalPages: number }> {
-    const limit = 50;
+    const limit = 10;
     const offset = (page - 1) * limit;
-
     let query = this.bookingRepositery
       .createQueryBuilder('b')
       .leftJoinAndSelect('b.room', 'room')
       .leftJoinAndSelect('b.user', 'user');
-
-    // Get total count before applying pagination
-    const totalCount = await query.getCount();
+    if (roomId) {
+      query = query.where('b.room_id = :roomId', { roomId });
+    }
+    // Filter modes
+    if (filterMode === 'today') {
+      query = query.andWhere('DATE(b.startTime) = CURRENT_DATE');
+    } else if (filterMode === 'upcoming') {
+      query = query.andWhere('b.endTime >= NOW()');
+    } else if (filterMode === 'range' && fromDate && toDate) {
+      query = query.andWhere('b.startTime >= :fromDate AND b.endTime <= :toDate', {
+        fromDate,
+        toDate,
+      });
+    }
+    const totalCount = await query.getCount(); // count after filtering
     const totalPages = Math.ceil(totalCount / limit);
-
-    // Apply pagination
     query = query.orderBy('b.startTime', 'DESC').limit(limit).offset(offset);
-
     const bookings = await query.getMany();
-
-    // Group bookings by room
+    // Grouping is optional if you only return one room's bookings, but can keep for consistency
     const grouped = new Map<string, any>();
     bookings.forEach((b) => {
       if (!grouped.has(b.room.id)) {
@@ -227,7 +264,6 @@ export class BookingsService {
           bookings: [],
         });
       }
-
       grouped.get(b.room.id).bookings.push({
         booking_id: b.id,
         user_id: b.user.id,
@@ -236,7 +272,6 @@ export class BookingsService {
         end_time: b.endTime,
       });
     });
-
     return {
       bookings: Array.from(grouped.values()) || [],
       totalPages,

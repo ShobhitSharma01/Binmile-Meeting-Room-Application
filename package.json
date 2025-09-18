@@ -12,7 +12,13 @@
     "prettier": "^3.0.0"
   },
   "lint-staged": {
-    "server/**/*.{ts,js,json,md}": ["prettier --write", "git add"],
-    "client/frontend/**/*.{ts,tsx,js,jsx,json,css,scss,md}": ["prettier --write", "git add"]
+    "server/**/*.{ts,js,json,md}": [
+      "prettier --write",
+      "git add"
+    ],
+    "client/frontend/**/*.{ts,tsx,js,jsx,json,css,scss,md}": [
+      "prettier --write",
+      "git add"
+    ]
   }
 }
